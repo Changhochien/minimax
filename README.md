@@ -1,4 +1,4 @@
-# minimax
+# minimax-cli-with-gen-skills
 
 MiniMax CLI — image, speech, video, and music generation.
 

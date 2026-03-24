@@ -2,10 +2,10 @@
 # Install minimax CLI tool and Claude Code skill
 #
 # One-liner (no clone required):
-#   curl -sL https://raw.githubusercontent.com/Changhochien/minimax/main/install.sh | bash -s -- --key YOUR_KEY
+#   curl -sL https://raw.githubusercontent.com/Changhochien/minimax-cli-with-gen-skills/main/install.sh | bash -s -- --key YOUR_KEY
 #
 # Or clone first:
-#   gh repo clone Changhochien/minimax && cd minimax
+#   gh repo clone Changhochien/minimax-cli-with-gen-skills && cd minimax-cli-with-gen-skills
 #   ./install.sh --key YOUR_KEY
 #
 # Options:
