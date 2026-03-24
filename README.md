@@ -15,8 +15,24 @@ Designed for Claude Code and OpenClaw: zero MCP token overhead, skills call the 
 
 ## Prerequisites
 
-- [uv](https://github.com/astral-sh/uv)
-- MiniMax API key with Token Plan enabled — get one at [platform.minimax.io](https://platform.minimax.io)
+### 1. Install uv
+
+uv is a fast Python package manager. Install it first:
+
+```bash
+# macOS / Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Or via pip
+pip install uv
+
+# Or via Homebrew
+brew install uv
+```
+
+### 2. Get a MiniMax API key
+
+Sign up at [platform.minimax.io](https://platform.minimax.io) and copy your Token Plan API key.
 
 ## Install
 
