@@ -1,6 +1,6 @@
 # minimax
 
-MiniMax CLI — image generation, text-to-speech, and video generation.
+MiniMax CLI — image, speech, video, and music generation.
 
 Designed for Claude Code and OpenClaw: zero MCP token overhead, skills call the CLI directly.
 
@@ -11,6 +11,7 @@ Designed for Claude Code and OpenClaw: zero MCP token overhead, skills call the 
 | **Image** | `image-01` | Text-to-Image, Image-to-Image, character-consistent I2I |
 | **Speech** | `speech-2.8-hd` | TTS, voice cloning, voice design, async long-form TTS |
 | **Video** | `MiniMax-Hailuo-02` | Text-to-Video, Image-to-Video, first-last-frame, subject-consistent |
+| **Music** | `music-2.5+` | Text-to-Music, full songs with lyrics |
 
 ## Prerequisites
 
@@ -34,6 +35,16 @@ chmod +x install.sh
 
 This installs `minimax` as a CLI tool via `uv tool install` and saves your API key to `~/.config/minimax/creds.toml`.
 
+## Regional API hosts
+
+By default the CLI uses `api.minimax.io` (Global). For Mainland China use `--host cn`:
+
+```bash
+./install.sh --key YOUR_KEY --host cn
+```
+
+Or set `MINIMAX_API_HOST=cn` in `~/.config/minimax/creds.toml`.
+
 ## Manual install
 
 ```bash
@@ -43,6 +54,7 @@ uv tool install --from "git+https://github.com/Changhochien/minimax" minimax
 # Set API key
 export MINIMAX_API_KEY=your-key
 # Or save to ~/.config/minimax/creds.toml
+# With regional host: MINIMAX_API_HOST=cn
 ```
 
 ## Usage
@@ -98,6 +110,26 @@ minimax video query <task_id>
 
 # Retrieve generated video file
 minimax video retrieve <file_id>
+
+# Music generation (T2M — instrumental)
+minimax music generate --prompt "Upbeat corporate background music, positive energy" --instrumental --output track.mp3
+
+# Music generation (full song)
+minimax music generate \
+  --prompt "Energetic industrial anthem, powerful drums" \
+  --lyrics "[Verse]
+Precision made, factory floor
+1988, Thailand shore
+Rubber belts that run forever
+..."
+
+# Auto-generate lyrics from prompt
+minimax music generate --prompt "Dark cinematic underscore" --auto-lyrics --output score.mp3
+
+# Generate lyrics first, then use with music
+minimax music lyrics --prompt "Thailand factory, precision belts, industrial strength"
+# Copy the generated lyrics, then:
+minimax music generate --prompt "Energetic industrial" --lyrics "<pasted lyrics>" --output song.mp3
 ```
 
 ## Claude Code Integration
@@ -137,8 +169,9 @@ uv run python src/minimax_cli.py video --help
 minimax/
 ├── src/
 │   ├── minimax/           # Shared Python package
-│   │   ├── api/           # HTTP client (httpx)
+│   │   ├── api/           # HTTP client (httpx, regional host support)
 │   │   ├── image/         # Image generation
+│   │   ├── music/         # Music generation
 │   │   ├── speech/        # TTS + voice cloning/design
 │   │   └── video/         # Video generation
 │   └── minimax_cli.py     # Typer CLI entry point
@@ -169,3 +202,9 @@ The CLI and shared API layer are in the same package — no duplicated code.
 - **Query:** `GET https://api.minimax.io/v1/query/video_generation`
 - **Retrieve:** `GET https://api.minimax.io/v1/files/retrieve`
 - **Models:** `MiniMax-Hailuo-2.3`, `MiniMax-Hailuo-02`, `S2V-01`
+
+### Music
+- **Music Generation:** `POST https://api.minimax.io/v1/music_generation`
+- **Lyrics Generation:** `POST https://api.minimax.io/v1/lyrics_generation`
+- **Model:** `music-2.5+`
+- **Features:** Instrumental, full songs with structured lyrics ([Verse], [Chorus], etc.), auto-lyrics from prompt

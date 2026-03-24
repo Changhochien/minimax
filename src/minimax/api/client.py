@@ -11,11 +11,23 @@ class MiniMaxClient:
     """Thread-safe shared HTTP client for MiniMax API."""
 
     BASE_URL = "https://api.minimax.io/v1"
+    # Regional hosts: Global → api.minimax.io, Mainland China → api.minimaxi.com
+    _DEFAULT_HOSTS = {"global": "https://api.minimax.io", "cn": "https://api.minimaxi.com"}
 
     def __init__(self, api_key: str | None = None, timeout: float = 120.0) -> None:
         self.api_key = api_key or os.environ.get("MINIMAX_API_KEY", "")
         if not self.api_key:
             raise ValueError("MINIMAX_API_KEY is required")
+
+        # Support regional host override
+        host = os.environ.get("MINIMAX_API_HOST", "").strip().lower()
+        if host in self._DEFAULT_HOSTS:
+            self.BASE_URL = self._DEFAULT_HOSTS[host]
+        elif host.startswith("http"):
+            self.BASE_URL = host
+        else:
+            self.BASE_URL = self._DEFAULT_HOSTS["global"]
+
         self.timeout = timeout
         self._client: httpx.AsyncClient | None = None
 

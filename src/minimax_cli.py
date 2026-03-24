@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""MiniMax unified CLI — image, speech, and video generation."""
+"""MiniMax CLI — image, speech, video, and music generation."""
 from __future__ import annotations
 
 import asyncio
 import base64
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -14,24 +15,27 @@ from typing_extensions import Annotated
 
 from minimax.api.client import MiniMaxClient
 from minimax.image.client import ImageClient
+from minimax.music.client import MusicClient
 from minimax.speech.client import SpeechClient
 from minimax.video.client import VideoClient
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 # ── App scaffolding ────────────────────────────────────────────────────────────
 
 app = typer.Typer(
     name="minimax",
-    help="MiniMax unified CLI — image, speech, and video generation.",
+    help="MiniMax CLI — image, speech, video, and music generation.",
     add_completion=False,
 )
 image_app = typer.Typer()
 speech_app = typer.Typer()
 video_app = typer.Typer()
+music_app = typer.Typer()
 app.add_typer(image_app, name="image", help="Image generation (T2I / I2I)")
 app.add_typer(speech_app, name="speech", help="Text-to-speech and voice management")
 app.add_typer(video_app, name="video", help="Video generation (Hailuo)")
+app.add_typer(music_app, name="music", help="Music generation")
 
 
 def get_client() -> MiniMaxClient:
@@ -39,7 +43,21 @@ def get_client() -> MiniMaxClient:
 
 
 def json_output(result: dict[str, Any]) -> None:
-    typer.echo(json.dumps(result, indent=2))
+    typer.echo(json.dumps(result, indent=2, ensure_ascii=False))
+
+
+def _save_hex_to_file(hex_data: str, output: Path) -> None:
+    audio_bytes = bytes.fromhex(hex_data)
+    Path(output).write_bytes(audio_bytes)
+    typer.echo(f"Saved {len(audio_bytes):,} bytes to {output}")
+
+
+def _resolve_output_path(default_name: str, output: Path | None) -> Path:
+    """Resolve output path, creating parent directories if needed."""
+    if output is None:
+        return Path(default_name)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    return output
 
 
 # ── Image subcommands ──────────────────────────────────────────────────────────
@@ -87,12 +105,13 @@ def generate(
         )
         if output and result.get("success") and result.get("images"):
             data = result["images"][0]
+            out_path = _resolve_output_path("output.png", output)
             if data.startswith("data:"):
                 _, b64 = data.split(",", 1)
-                Path(output).write_bytes(base64.b64decode(b64))
+                out_path.write_bytes(base64.b64decode(b64))
             else:
-                Path(output).write_text(data)
-            typer.echo(f"Saved to {output}")
+                out_path.write_bytes(base64.b64decode(data))
+            typer.echo(f"Saved to {out_path}")
         else:
             json_output(result)
 
@@ -117,7 +136,8 @@ def synthesize(
     bitrate: int = typer.Option(None, "--bitrate"),
     channel: int = typer.Option(1, "--channel"),
     output_format: str = typer.Option("hex", "--output-format"),
-    output: Path = typer.Option(None, "--output", "-o", help="Save audio bytes to file"),
+    output: Path = typer.Option(None, "--output", "-o",
+                                help="Save decoded audio to file"),
 ) -> None:
     """Synthesize speech (sync, up to 10,000 chars)."""
     async def run() -> None:
@@ -130,9 +150,7 @@ def synthesize(
             channel=channel, output_format=output_format,
         )
         if output and result.get("success") and result.get("audio"):
-            audio_bytes = bytes.fromhex(result["audio"])
-            Path(output).write_bytes(audio_bytes)
-            typer.echo(f"Saved {len(audio_bytes)} bytes to {output}")
+            _save_hex_to_file(result["audio"], _resolve_output_path("output.mp3", output))
         else:
             json_output(result)
 
@@ -298,6 +316,75 @@ def retrieve(
         client = get_client()
         video = VideoClient(client)
         result = await video.retrieve_file(file_id)
+        json_output(result)
+
+    asyncio.run(run())
+
+
+# ── Music subcommands ─────────────────────────────────────────────────────────
+
+@music_app.command()
+def generate(
+    prompt: str = typer.Option(..., "--prompt", "-p",
+                               help="Music style/mood description (max 2000 chars)"),
+    lyrics: str = typer.Option(None, "--lyrics", "-l",
+                               help="Song lyrics with [Verse], [Chorus], etc. tags (1–3500 chars)"),
+    model: str = typer.Option("music-2.5+", "--model", "-m"),
+    instrumental: bool = typer.Option(False, "--instrumental/--no-instrumental",
+                                       help="Generate instrumental only (music-2.5+)"),
+    auto_lyrics: bool = typer.Option(False, "--auto-lyrics/--no-auto-lyrics",
+                                      help="Auto-generate lyrics from prompt"),
+    audio_format: str = typer.Option("mp3", "--audio-format", "-f",
+                                     help="mp3, wav, pcm"),
+    sample_rate: int = typer.Option(44100, "--sample-rate"),
+    bitrate: int = typer.Option(256000, "--bitrate"),
+    output: Path = typer.Option(None, "--output", "-o",
+                                 help="Save decoded audio to file"),
+) -> None:
+    """Generate a music track (music-2.5+)."""
+    audio_setting = {"sample_rate": sample_rate, "bitrate": bitrate, "format": audio_format}
+
+    async def run() -> None:
+        client = get_client()
+        music = MusicClient(client)
+        result = await music.generate(
+            prompt=prompt,
+            lyrics=lyrics,
+            model=model,
+            is_instrumental=instrumental,
+            lyrics_optimizer=auto_lyrics,
+            audio_setting=audio_setting,
+            output_format="hex",
+        )
+        if output and result.get("base_resp", {}).get("status_code") == 0:
+            data = result.get("data", {})
+            if data.get("status") == 2 and data.get("audio"):
+                out_path = _resolve_output_path("output.mp3", output)
+                _save_hex_to_file(data["audio"], out_path)
+            else:
+                typer.echo(f"Status: {data.get('status')} — audio may still be generating")
+                json_output(result)
+        else:
+            json_output(result)
+
+    asyncio.run(run())
+
+
+@music_app.command()
+def lyrics(
+    prompt: str = typer.Option(..., "--prompt", "-p",
+                               help="Theme or idea for the song (max 2000 chars)"),
+    mode: str = typer.Option("write_full_song", "--mode",
+                             help="Mode: write_full_song (default)"),
+) -> None:
+    """Generate song lyrics from a text description.
+
+    Use the output as the --lyrics argument for 'minimax music generate'.
+    """
+    async def run() -> None:
+        client = get_client()
+        music = MusicClient(client)
+        result = await music.generate_lyrics(prompt=prompt, mode=mode)
         json_output(result)
 
     asyncio.run(run())

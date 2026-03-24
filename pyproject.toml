@@ -4,15 +4,15 @@ build-backend = "hatchling.build"
 
 [project]
 name = "minimax"
-version = "0.1.0"
-description = "MiniMax CLI — image, speech, and video generation."
+version = "0.2.0"
+description = "MiniMax CLI — image, speech, video, and music generation."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [
     { name = "Changho Chen", email = "changho@example.com" },
 ]
-keywords = ["minimax", "ai", "tts", "speech", "image-generation", "video-generation"]
+keywords = ["minimax", "ai", "tts", "speech", "image-generation", "video-generation", "music-generation"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
